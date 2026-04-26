@@ -253,6 +253,7 @@ select option{background:var(--surface2)}
   <div class="ntab" id="tab-hoja" onclick="showTab('hoja',this)">Hoja semanal</div>
   <div class="ntab" id="tab-porcentaje" onclick="showTab('porcentaje',this)">% Obras</div>
   <div class="ntab" id="tab-economico" onclick="showTab('economico',this)">Informes económicos</div>
+  <div class="ntab" id="tab-por-trabajador" onclick="showTab('por-trabajador',this)">Coste por trabajador</div>
   <div class="ntab" id="tab-material" onclick="showTab('material',this)">Gastos material</div>
   <div class="ntab" id="tab-gestion" onclick="showTab('gestion',this)">Gestión</div>
 </nav>
@@ -262,6 +263,10 @@ select option{background:var(--surface2)}
 <div id="sec-cuadrante" class="sec active">
   <div id="cerrada-banner" class="cerrada-banner" style="display:none">
     Aviso: Esta semana ya esta cerrada. Para editar, abrela desde Gestion > Semanas.
+  </div>
+  <div id="semanas-abiertas-banner" style="display:none;background:var(--red-bg);border:1px solid rgba(247,95,95,.3);border-radius:var(--radius);padding:10px 16px;font-size:13px;color:var(--red);margin-bottom:14px;display:none;align-items:center;gap:8px">
+    ⚠️ <span id="semanas-abiertas-msg"></span>
+    <button class="btn btn-sm" style="margin-left:auto;color:var(--red);border-color:var(--red)" onclick="showTab('gestion',document.getElementById('tab-gestion'))">Ver semanas</button>
   </div>
   <div class="card">
     <div class="card-title">Nueva asignacion</div>
@@ -288,7 +293,7 @@ select option{background:var(--surface2)}
 
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-p" id="btn-add" onclick="addAsignacion()">Anadir asignacion</button>
-      <button class="btn btn-g" onclick="cerrarSemana()">Cerrar semana y guardar</button>
+      <button class="btn btn-g" onclick="cerrarSemanaConNota()">Cerrar semana y guardar</button>
     </div>
   </div>
   <div class="card" style="margin-top:4px">
@@ -313,6 +318,13 @@ select option{background:var(--surface2)}
 <div id="sec-incidencias" class="sec"><div id="inc-content"></div></div>
 
 <div id="sec-informes" class="sec">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+    <div>
+      <div style="font-size:16px;font-weight:600">Histórico de asignaciones</div>
+      <div style="font-size:12px;color:var(--text2)">Consulta y exporta el registro completo de planificación</div>
+    </div>
+    <button class="btn btn-p" onclick="exportarHistoricoExcel()">⬇ Exportar a Excel</button>
+  </div>
   <div class="card">
     <div class="card-title">Filtrar historico</div>
     <div class="g4" style="margin-bottom:14px">
@@ -438,6 +450,37 @@ select option{background:var(--surface2)}
   <div id="eco-results"></div>
 </div>
 
+<div id="sec-por-trabajador" class="sec">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+    <div>
+      <div style="font-size:16px;font-weight:600">Coste por trabajador</div>
+      <div style="font-size:12px;color:var(--text2)">Desglose del coste mensual de cada operario por obra</div>
+    </div>
+    <button class="btn btn-p" onclick="exportarTrabajadorImagen()">Descargar imagen</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Filtrar</div>
+    <div class="g3" style="margin-bottom:14px">
+      <div><label>Año</label><select id="pt-ano"><option value="">Todos</option></select></div>
+      <div><label>Mes</label>
+        <select id="pt-mes">
+          <option value="">Todos</option>
+          <option value="1">Enero</option><option value="2">Febrero</option>
+          <option value="3">Marzo</option><option value="4">Abril</option>
+          <option value="5">Mayo</option><option value="6">Junio</option>
+          <option value="7">Julio</option><option value="8">Agosto</option>
+          <option value="9">Septiembre</option><option value="10">Octubre</option>
+          <option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+      </div>
+      <div><label>Trabajador</label><select id="pt-op"><option value="">Todos</option></select></div>
+    </div>
+    <button class="btn btn-p" onclick="buscarPorTrabajador()">Calcular</button>
+  </div>
+  <div id="pt-stats" class="g4" style="margin-bottom:14px"></div>
+  <div id="pt-results"></div>
+</div>
+
 <div id="sec-material" class="sec">
   <div class="card">
     <div class="card-title">Nuevo gasto de material</div>
@@ -559,6 +602,28 @@ select option{background:var(--surface2)}
   </div>
 
   <div class="card">
+    <div class="card-title">Días laborables por mes</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
+      Número de días laborables que se usará para calcular el coste diario de cada trabajador.
+      Si lo dejas en 0, se usarán los días realmente registrados en el cuadrante ese mes.
+    </p>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div>
+        <label>Días laborables estándar/mes</label>
+        <input type="number" id="dias-laborables" min="0" max="31" value="22"
+          style="width:80px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);font-size:14px;font-family:var(--font);color:var(--text);text-align:center">
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:8px">
+        <button class="btn btn-p" onclick="guardarDiasLaborables()">Guardar</button>
+        <span id="dias-msg" style="font-size:12px"></span>
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:10px">
+      Ejemplo: si un trabajador cobra 3.000 €/mes y hay 22 días laborables, su coste diario será 3.000 ÷ 22 = 136,36 €/día, independientemente de cuántos días aparezca en el cuadrante ese mes.
+    </p>
+  </div>
+
+  <div class="card">
     <div class="card-title">Tarifas por estado (coste día en €)</div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:14px">Define el coste diario de cada tipo de jornada. Se usará para calcular los informes económicos.</p>
     <div id="tarifas-lista"></div>
@@ -660,6 +725,7 @@ async function sbDelete(table, params){
 
 async function init(){
   initMode();
+  initDiasLaborables();
   loader('Conectando con la base de datos...');
   try{
     await Promise.all([cargarOperarios(),cargarVehiculos(),cargarObras(),cargarTarifas()]);
@@ -675,6 +741,7 @@ async function init(){
     await cargarExportSemanas();
     await cargarInfoFiltros();
     hideLoader(); toast('Conectado correctamente','ok');
+    checkSemanasAbiertas();
   }catch(e){
     setConn(false); hideLoader();
     toast('Error de conexion: '+e.message,'err');
@@ -1007,7 +1074,20 @@ function renderGestion(){
     </div>`;
   }).join('');
   document.getElementById('ob-lista').innerHTML=S.obras.length
-    ? S.obras.map(o=>`<div class="row"><span class="badge b-info" style="font-size:10px;min-width:30px;justify-content:center">${o.columna_excel}</span><span style="font-size:13px;font-weight:500">${o.codigo}</span><span style="font-size:12px;color:var(--text2)">${o.nombre}</span><button class="btn btn-r btn-sm" style="margin-left:auto" onclick="archivarObra('${o.id}','${o.codigo}')">Archivar</button></div>`).join('')
+    ? S.obras.map(o=>{
+        const presup=o.presupuesto||0;
+        return `<div class="row" style="flex-wrap:wrap;gap:6px">
+          <span class="badge b-info" style="font-size:10px;min-width:30px;justify-content:center">${o.columna_excel}</span>
+          <span style="font-size:13px;font-weight:500;min-width:60px">${o.codigo}</span>
+          <span style="font-size:12px;color:var(--text2);flex:1">${o.nombre}</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input class="tarifa-input" type="number" step="100" min="0"
+              id="presup-${o.id}" value="${presup}" placeholder="0" style="width:100px"> €
+            <button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="guardarPresupuesto('${o.id}','${o.codigo}')">Presupuesto</button>
+          </div>
+          <button class="btn btn-r btn-sm" onclick="archivarObra('${o.id}','${o.codigo}')">Archivar</button>
+        </div>`;
+      }).join('')
     : '<div style="color:var(--text3);font-size:13px">Sin obras activas.</div>';
 }
 
@@ -1021,7 +1101,15 @@ async function cargarSemanas(){
     const fin=new Date(d);fin.setDate(d.getDate()+6);
     const fmt=dt=>dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
     const reabrirBtn = s.cerrada ? `<button class="btn btn-sm" style="margin-left:auto" onclick="reabrirSemana('${s.id}')">Reabrir</button>` : '';
-    return `<div class="row"><span style="font-size:13px;font-weight:500">${fmt(d)} - ${fmt(fin)}</span><span class="badge ${s.cerrada?'b-ok':'b-warn'}">${s.cerrada?'Cerrada':'Abierta'}</span>${reabrirBtn}</div>`;
+    const nota = s.nota ? `<div style="font-size:11px;color:var(--text2);margin-top:2px;font-style:italic">📝 ${s.nota}</div>` : '';
+    return `<div class="row" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:500">${fmt(d)} - ${fmt(fin)}</span>
+        <span class="badge ${s.cerrada?'b-ok':'b-warn'}">${s.cerrada?'Cerrada':'Abierta'}</span>
+        ${reabrirBtn}
+      </div>
+      ${nota}
+    </div>`;
   }).join('');
 }
 
@@ -1270,9 +1358,10 @@ function showTab(t,el){
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('sec-'+t).classList.add('active');
-  if(t==='gestion'){renderGestion();cargarSemanas();cargarTarifas();}
+  if(t==='gestion'){renderGestion();cargarSemanas();cargarTarifas();initDiasLaborables();}
   if(t==='hoja'){renderHoja();}
   if(t==='economico'){initEconomico();}
+  if(t==='por-trabajador'){initPorTrabajador();}
   if(t==='material'){initMaterial();}
   if(t==='porcentaje'){initPorcentaje();}
 }
@@ -1516,8 +1605,28 @@ const ESTADOS_EXTRA=['G','MD','D','DF','MDF'];
 // Vacaciones: coste general empresa
 const ESTADOS_VA=['VA'];
 
+function getDiasLaborables(){
+  const saved = localStorage.getItem('dias_laborables');
+  const el = document.getElementById('dias-laborables');
+  const val = el ? parseInt(el.value)||0 : (saved ? parseInt(saved)||0 : 0);
+  return val; // 0 = usar días registrados
+}
+
+function guardarDiasLaborables(){
+  const val = document.getElementById('dias-laborables').value;
+  localStorage.setItem('dias_laborables', val);
+  setMsg('dias-msg', val==='0' ? 'Usando días registrados en cuadrante.' : val+' días/mes guardado.', 'ok');
+}
+
+function initDiasLaborables(){
+  const saved = localStorage.getItem('dias_laborables');
+  const el = document.getElementById('dias-laborables');
+  if(el && saved) el.value = saved;
+}
+
 function calcularCostesOperarios(asigs){
-  // Group by operario+month to calculate daily rate
+  const diasFijos = getDiasLaborables();
+  // Group by operario+month
   const porOpMes={};
   asigs.forEach(a=>{
     const op=a.operarios?.nombre||'?';
@@ -1533,10 +1642,11 @@ function calcularCostesOperarios(asigs){
     porOpMes[key].asigs.push(a);
   });
 
-  // Build coste per asignacion
   const costePorAsig={};
-  Object.values(porOpMes).forEach(({op,coste_mensual,totalDias,asigs:opAsigs})=>{
-    const costeDia = totalDias>0 ? coste_mensual/totalDias : 0;
+  Object.values(porOpMes).forEach(({coste_mensual,totalDias,asigs:opAsigs})=>{
+    // Use fixed days if set, otherwise use recorded days
+    const diasBase = diasFijos > 0 ? diasFijos : totalDias;
+    const costeDia = diasBase > 0 ? coste_mensual/diasBase : 0;
     opAsigs.forEach(a=>{
       const extra = ESTADOS_EXTRA.includes(a.estado) ? getTarifa(a.estado) : 0;
       const baseObra = ESTADOS_OBRA.includes(a.estado) ? costeDia : 0;
@@ -2334,6 +2444,245 @@ async function exportarEconomicoPDF(){
     toast('Error generando PDF: '+e.message,'err');
     console.error(e);
   }
+}
+
+
+// ========== MEJORA 2: COSTE POR TRABAJADOR ==========
+async function initPorTrabajador(){
+  const {data:sems}=await getSupa().from('semanas').select('fecha_lunes').order('fecha_lunes',{ascending:false});
+  const anos=[...new Set((sems||[]).map(s=>new Date(s.fecha_lunes+'T12:00:00').getFullYear()))];
+  const sel=document.getElementById('pt-ano');
+  sel.innerHTML='<option value="">Todos</option>';
+  anos.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
+  sel.value=new Date().getFullYear();
+  const selOp=document.getElementById('pt-op');
+  selOp.innerHTML='<option value="">Todos</option>';
+  S.operarios.forEach(o=>{const opt=document.createElement('option');opt.value=o.nombre;opt.textContent=o.nombre;selOp.appendChild(opt);});
+}
+
+async function buscarPorTrabajador(){
+  const ano=document.getElementById('pt-ano').value;
+  const mes=document.getElementById('pt-mes').value;
+  const opFil=document.getElementById('pt-op').value;
+  loader('Calculando costes por trabajador...');
+  try{
+    let q=getSupa().from('asignaciones')
+      .select('*,semanas(fecha_lunes),operarios(nombre,coste_mensual),obras(codigo,nombre)');
+    if(opFil){const o=S.operarios.find(x=>x.nombre===opFil);if(o)q=q.eq('operario_id',o.id);}
+    const {data:asigs,error}=await q;
+    if(error) throw new Error(JSON.stringify(error));
+    let filtered=asigs||[];
+    if(ano) filtered=filtered.filter(a=>new Date(a.semanas.fecha_lunes+'T12:00:00').getFullYear()==ano);
+    if(mes) filtered=filtered.filter(a=>new Date(a.semanas.fecha_lunes+'T12:00:00').getMonth()+1==mes);
+    hideLoader();
+    renderPorTrabajador(filtered);
+  }catch(e){hideLoader();toast('Error: '+e.message,'err');}
+}
+
+function renderPorTrabajador(asigs){
+  const statsEl=document.getElementById('pt-stats');
+  const resEl=document.getElementById('pt-results');
+  if(!asigs.length){
+    statsEl.innerHTML='';
+    resEl.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:2rem">Sin datos para ese período.</div>';
+    return;
+  }
+  const costePorAsig=calcularCostesOperarios(asigs);
+
+  // Group by operario
+  const porOp={};
+  asigs.forEach(a=>{
+    const op=a.operarios?.nombre||'?';
+    const obra=a.obras?.codigo||'?';
+    const obraNom=a.obras?.nombre||'';
+    if(!porOp[op]) porOp[op]={coste_mensual:parseFloat(a.operarios?.coste_mensual)||0,obras:{},totalCoste:0,totalDias:0};
+    const c=costePorAsig[a.id]||{baseObra:0,extra:0,baseEmpresa:0};
+    const costeTotal=c.baseObra+c.extra+c.baseEmpresa;
+    porOp[op].totalCoste+=costeTotal;
+    porOp[op].totalDias++;
+    if(!porOp[op].obras[obra]) porOp[op].obras[obra]={nom:obraNom,dias:0,coste:0};
+    porOp[op].obras[obra].dias++;
+    porOp[op].obras[obra].coste+=c.baseObra+c.extra;
+  });
+
+  const totalGeneral=Object.values(porOp).reduce((s,o)=>s+o.totalCoste,0);
+  const totalOps=Object.keys(porOp).length;
+
+  statsEl.innerHTML=`
+    <div class="stat"><div class="stat-n">${totalOps}</div><div class="stat-l">Trabajadores</div></div>
+    <div class="stat"><div class="stat-n">${totalGeneral.toFixed(0)} €</div><div class="stat-l">Coste total</div></div>
+    <div class="stat"><div class="stat-n">${totalOps>0?(totalGeneral/totalOps).toFixed(0):0} €</div><div class="stat-l">Coste medio/trabajador</div></div>
+    <div class="stat"><div class="stat-n">${getDiasLaborables()||'Auto'}</div><div class="stat-l">Días base/mes</div></div>`;
+
+  resEl.innerHTML=Object.entries(porOp).map(([op,d])=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div style="font-weight:600;font-size:14px">${op}</div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--text2)">${d.coste_mensual.toFixed(2)} €/mes · ${d.totalDias} días</span>
+          <span style="font-size:16px;font-weight:700;color:var(--accent)">${d.totalCoste.toFixed(2)} €</span>
+        </div>
+      </div>
+      <table class="eco-table">
+        <thead><tr><th>Obra</th><th style="text-align:right">Días</th><th style="text-align:right">Coste</th><th style="text-align:right">% del total</th></tr></thead>
+        <tbody>
+          ${Object.entries(d.obras).map(([obra,od])=>{
+            const pct=d.totalCoste>0?od.coste/d.totalCoste*100:0;
+            return `<tr>
+              <td><span class="badge b-gray">${obra}</span> ${od.nom}</td>
+              <td style="text-align:right">${od.dias}</td>
+              <td style="text-align:right;font-weight:600">${od.coste.toFixed(2)} €</td>
+              <td style="text-align:right">
+                <span style="font-size:11px">${pct.toFixed(1)}%</span>
+                <span class="pct-bar-wrap"><span class="pct-bar" style="width:${Math.min(pct,100)}%"></span></span>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+}
+
+async function exportarTrabajadorImagen(){
+  const el=document.getElementById('pt-results');
+  if(!el||!el.innerHTML.trim()||el.innerHTML.includes('Sin datos')){toast('Primero calcula los datos','warn');return;}
+  const btn=event.target; btn.textContent='Generando...'; btn.disabled=true;
+  try{
+    if(!window.html2canvas){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+    const statsEl=document.getElementById('pt-stats');
+    const container=document.createElement('div');
+    container.style.cssText='position:fixed;left:-9999px;top:0;background:#0f1117;padding:24px;width:900px;';
+    const title=document.createElement('div');
+    title.style.cssText='color:#eef0f6;font-size:18px;font-weight:700;margin-bottom:16px;font-family:DM Sans,sans-serif';
+    const ano=document.getElementById('pt-ano')?.value||'';
+    const mes=document.getElementById('pt-mes')?.value||'';
+    const meses=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    title.textContent='Coste por trabajador'+(mes?' — '+meses[parseInt(mes)]:'')+(ano?' '+ano:'');
+    container.appendChild(title);
+    container.appendChild(statsEl.cloneNode(true));
+    const sp=document.createElement('div');sp.style.height='16px';container.appendChild(sp);
+    container.appendChild(el.cloneNode(true));
+    document.body.appendChild(container);
+    const canvas=await html2canvas(container,{backgroundColor:'#0f1117',scale:1.5,useCORS:true,logging:false});
+    document.body.removeChild(container);
+    const link=document.createElement('a');
+    link.download='coste_trabajadores'+(mes?'_'+mes:'')+(ano?'_'+ano:'')+'.png';
+    link.href=canvas.toDataURL('image/png');link.click();
+    btn.textContent='Descargar imagen'; btn.disabled=false;
+    toast('Imagen descargada','ok');
+  }catch(e){btn.textContent='Descargar imagen';btn.disabled=false;toast('Error: '+e.message,'err');}
+}
+
+// ========== MEJORA 3: ALERTA SEMANAS SIN CERRAR ==========
+async function checkSemanasAbiertas(){
+  try{
+    const {data}=await getSupa().from('semanas').select('fecha_lunes,cerrada').order('fecha_lunes',{ascending:false}).limit(10);
+    if(!data) return;
+    const hoy=new Date();
+    const semanasAbiertas=(data||[]).filter(s=>{
+      if(s.cerrada) return false;
+      const lunes=new Date(s.fecha_lunes+'T12:00:00');
+      const diffDias=Math.floor((hoy-lunes)/(1000*60*60*24));
+      return diffDias>7; // Open for more than a week
+    });
+    const banner=document.getElementById('semanas-abiertas-banner');
+    const msg=document.getElementById('semanas-abiertas-msg');
+    if(semanasAbiertas.length>0&&banner&&msg){
+      msg.textContent=semanasAbiertas.length+' semana(s) sin cerrar llevan más de 7 días abiertas. Los informes económicos pueden ser inexactos.';
+      banner.style.display='flex';
+    } else if(banner){
+      banner.style.display='none';
+    }
+  }catch(e){console.log('checkSemanasAbiertas error:',e);}
+}
+
+// ========== MEJORA 4: PRESUPUESTO POR OBRA ==========
+async function guardarPresupuesto(id, cod){
+  const input=document.getElementById('presup-'+id);
+  if(!input) return;
+  const val=parseFloat(input.value)||0;
+  loader('Guardando presupuesto...');
+  try{
+    const {error}=await getSupa().from('obras').update({presupuesto:val}).eq('id',id);
+    if(error) throw new Error(JSON.stringify(error));
+    const obra=S.obras.find(o=>o.id===id);
+    if(obra) obra.presupuesto=val;
+    hideLoader(); toast(cod+': presupuesto '+val.toFixed(2)+' € guardado','ok');
+  }catch(e){hideLoader();toast('Error: '+e.message,'err');}
+}
+
+// ========== MEJORA 5: EXPORTAR HISTÓRICO EXCEL ==========
+async function exportarHistoricoExcel(){
+  loader('Preparando exportación...');
+  try{
+    const ano=document.getElementById('inf-ano')?.value||'';
+    const mes=document.getElementById('inf-mes')?.value||'';
+    const opFil=document.getElementById('inf-op')?.value||'';
+    const obraFil=document.getElementById('inf-obra')?.value||'';
+    const estadoFil=document.getElementById('inf-estado')?.value||'';
+
+    let q=getSupa().from('asignaciones')
+      .select('*,semanas(fecha_lunes,cerrada),operarios(nombre),obras(codigo,nombre),vehiculos(matricula)');
+    if(opFil){const o=S.operarios.find(x=>x.nombre===opFil);if(o)q=q.eq('operario_id',o.id);}
+    if(obraFil){const ob=S.obras.find(x=>x.codigo===obraFil);if(ob)q=q.eq('obra_id',ob.id);}
+    if(estadoFil) q=q.eq('estado',estadoFil);
+    q=q.order('semanas(fecha_lunes)',{ascending:true});
+
+    const {data,error}=await q;
+    if(error) throw new Error(JSON.stringify(error));
+    let rows=data||[];
+    if(ano) rows=rows.filter(r=>new Date(r.semanas.fecha_lunes+'T12:00:00').getFullYear()==ano);
+    if(mes) rows=rows.filter(r=>new Date(r.semanas.fecha_lunes+'T12:00:00').getMonth()+1==mes);
+
+    if(!rows.length){hideLoader();toast('Sin datos para exportar','warn');return;}
+
+    // Build CSV
+    const DIAS_N=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+    const headers=['Semana','Día','Operario','Obra (código)','Obra (nombre)','Estado','Vehículo'];
+    const csvRows=[headers.join(';')];
+    rows.forEach(r=>{
+      const fecha=r.semanas?.fecha_lunes||'';
+      const dia=DIAS_N[r.dia]||'';
+      const op=r.operarios?.nombre||'';
+      const obraCod=r.obras?.codigo||'';
+      const obraNom=r.obras?.nombre||'';
+      const estado=r.estado||'';
+      const veh=r.vehiculos?.matricula||'';
+      csvRows.push([fecha,dia,op,obraCod,obraNom,estado,veh].join(';'));
+    });
+    const csv='﻿'+csvRows.join('
+'); // BOM for Excel UTF-8
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    link.download='historico'+(ano?'_'+ano:'')+(mes?'_mes'+mes:'')+'.csv';
+    link.click();
+    hideLoader(); toast(rows.length+' registros exportados','ok');
+  }catch(e){hideLoader();toast('Error: '+e.message,'err');console.error(e);}
+}
+
+// ========== MEJORA 6: CERRAR SEMANA CON NOTA ==========
+async function cerrarSemanaConNota(){
+  if(!S.semanaId) return;
+  if(!S.asignaciones.length){toast('Sin asignaciones que guardar','warn');return;}
+
+  // Ask for note via simple prompt
+  const nota=prompt('¿Alguna incidencia o nota para esta semana? (opcional — pulsa Cancelar para omitir)');
+  if(nota===null) return; // User cancelled
+
+  if(!confirm('¿Cerrar y guardar esta semana en el histórico?')) return;
+  loader('Cerrando semana...');
+  try{
+    const updateData={cerrada:true};
+    if(nota && nota.trim()) updateData.nota=nota.trim();
+    const {error}=await getSupa().from('semanas').update(updateData).eq('id',S.semanaId);
+    if(error) throw new Error(JSON.stringify(error));
+    S.semanaCerrada=true;
+    document.getElementById('cerrada-banner').style.display='flex';
+    document.getElementById('btn-add').disabled=true;
+    await cargarExportSemanas();
+    hideLoader(); toast('Semana cerrada y guardada ✓','ok');
+  }catch(e){hideLoader();toast('Error: '+e.message,'err');}
 }
 
 init();
