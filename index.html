@@ -1718,17 +1718,26 @@ function renderEconomico(asigs, gastos, vehObraData){
         };
       }
     });
+    const diasFijosVeh = getDiasLaborables(); // Same fixed days as workers
     Object.entries(vehUsage).forEach(([vId,usage])=>{
       const vInfo=vehCostMap[vId]||{};
-      const costeVeh=vInfo.coste||0;
-      if(!costeVeh) return;
+      const costeMensualVeh=vInfo.coste||0;
+      if(!costeMensualVeh) return;
+      // Use fixed days if set, otherwise use total days the vehicle was assigned
+      const diasBaseVeh = diasFijosVeh > 0 ? diasFijosVeh : usage.totalDias;
+      const costeDiaVeh = diasBaseVeh > 0 ? costeMensualVeh / diasBaseVeh : 0;
       Object.entries(usage.porObra).forEach(([obraId, diasEnObra])=>{
         const obraEntry=Object.entries(porObra).find(([k])=>k===obraId);
         if(obraEntry){
           if(!obraEntry[1].vehiculos) obraEntry[1].vehiculos=[];
-          const proporcion=usage.totalDias>0?diasEnObra/usage.totalDias:0;
-          const costeProp=costeVeh*proporcion;
-          obraEntry[1].vehiculos.push({mat:vInfo.matricula||vId,dias:diasEnObra,total:usage.totalDias,coste:costeProp});
+          const costeProp=costeDiaVeh*diasEnObra;
+          obraEntry[1].vehiculos.push({
+            mat:vInfo.matricula||vId,
+            dias:diasEnObra,
+            total:diasBaseVeh,
+            costeDia:costeDiaVeh,
+            coste:costeProp
+          });
           if(!obraEntry[1].costeVehiculos) obraEntry[1].costeVehiculos=0;
           obraEntry[1].costeVehiculos+=costeProp;
         }
@@ -1758,9 +1767,9 @@ function renderEconomico(asigs, gastos, vehObraData){
     const total=obra.costeBase+obra.costeExtra+(obra.material||0)+costeVeh;
     const vehRows=(obra.vehiculos||[]).map(v=>`<tr>
       <td><span class="badge b-pur" style="font-size:10px">${v.mat}</span></td>
-      <td>Vehículo (${v.dias}/${v.total} días)</td>
+      <td>Vehículo (${v.dias} días × ${(v.costeDia||0).toFixed(2)} €/día)</td>
       <td style="text-align:right">${v.dias}</td>
-      <td style="text-align:right">—</td>
+      <td style="text-align:right">${(v.costeDia||0).toFixed(2)} €</td>
       <td style="text-align:right">—</td>
       <td style="text-align:right;font-weight:600">${v.coste.toFixed(2)} €</td>
     </tr>`).join('');
